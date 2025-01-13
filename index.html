@@ -541,7 +541,7 @@ document.addEventListener('keydown', function(e) {
               // Check valid length
               if (hexString.length < 8) {
                 // Minimum: slave address(2) + function code(2) + byte count(2) + CRC(4)
-                throw new Error("Invalid Modbus message length");
+                throw new Error("消息长度错误，请检查输入的寄存器数量是否正确");
               }
   
               const message = {
@@ -554,7 +554,7 @@ document.addEventListener('keydown', function(e) {
               const dataEndIndex = 6 + message.byteCount * 2;
               if (hexString.length < dataEndIndex + 4) {
                 // +4 for CRC
-                throw new Error("Message too short for specified byte count");
+                throw new Error("消息对于指定的字节数来说太短，请检查输入的寄存器数量是否正确");
               }
   
               const data = new Uint8Array(message.byteCount);
@@ -563,13 +563,18 @@ document.addEventListener('keydown', function(e) {
                 data[i] = parseInt(dataHex.substring(i * 2, (i + 1) * 2), 16);
               }
               message.data = data;
-  
-              // Parse CRC (last 4 characters)
-              message.crc = parseInt(hexString.substring(hexString.length - 4), 16);
+                   // Parse CRC (last 4 characters)
+                   message.crc = parseInt(hexString.substring(hexString.length - 4), 16);
+            // 验证 CRC
+            if (!this.validateCrc(message)) {
+                throw new Error("CRC 校验失败");
+            }
+
+         
   
               return message;
             } catch (e) {
-              throw new Error("Invalid hex string format: " + e.message);
+              throw new Error( e.message);
             }
           }
   
