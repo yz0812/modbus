@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modbus协议工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<!-- 添加提示框样式 -->
+<style>
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 4px;
+        display: none;
+        animation: fadeInOut 2s ease-in-out;
+    }
+    
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(20px); }
+        20% { opacity: 1; transform: translateY(0); }
+        80% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); }
+    }
+</style>
+    
+<body class="bg-gray-50">
+    <!-- 添加 Tab 切换部分 -->
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Modbus协议工具</h1>
+    
+    <!-- Tab 切换按钮 -->
+    <div class="mb-6 border-b border-gray-200">
+        <div class="flex space-x-4">
+            <button onclick="switchTab('parse')" 
+                    id="parseTab" 
+                    class="px-4 py-2 border-b-2 border-blue-500 text-blue-600 font-medium">
+                解析数据
+            </button>
+            <button onclick="switchTab('generate')" 
+                    id="generateTab" 
+                    class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+                生成命令
+            </button>
+            <button onclick="switchTab('help')" 
+            id="helpTab" 
+            class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+        说明文档
+    </button>
+        </div>
+    </div>
+    
+    <!-- 解析数据面板 -->
+    <div id="parsePanel" class="space-y-6">
+        <!-- 解析数据部分 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="mb-4">
+                <label for="parserInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    请输入要解析的数据
+                </label>
+                <input type="text" 
+                       id="parserInput" 
+                       placeholder="输入十六进制字符串..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button onclick="parseData()" 
+                    class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                解析
+            </button>
+            <div id="parseResult" class="mt-4"></div>
+        </div>
+
+        <!-- 获取寄存器值部分 -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">获取寄存器值</h2>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="startAddress" class="block text-sm font-medium text-gray-700 mb-2">
+                        寄存器地址
+                    </label>
+                    <input type="number" 
+                           id="startAddress" 
+                           placeholder="输入地址..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="endAddress" class="block text-sm font-medium text-gray-700 mb-2">
+                        低16位地址（可选）
+                    </label>
+                    <input type="number" 
+                           id="endAddress" 
+                           placeholder="输入地址..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <button onclick="getValueData()" 
+                    class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                获取Value
+            </button>
+            
+            <div id="registerResult" class="mt-4 pt-4 border-t border-gray-200"></div>
+        </div>
+    </div>
+    
+    <!-- 生成命令面板 -->
+    <div id="generatePanel" class="space-y-6 hidden">
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">生成读取命令</h2>
+            
+            <div class="grid grid-cols-4 gap-4 mb-4">
+                <div>
+                    <label for="slaveAddress" class="block text-sm font-medium text-gray-700 mb-2">
+                        从属地址
+                    </label>
+                    <input type="number" 
+                           id="slaveAddress" 
+                           placeholder="输入从属地址..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="functionCode" class="block text-sm font-medium text-gray-700 mb-2">
+                        功能码
+                    </label>
+                    <input type="number" 
+                           id="functionCode" 
+                           value="03"
+                           placeholder="输入功能码..." 
+                           default="03"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="cmdStartAddress" class="block text-sm font-medium text-gray-700 mb-2">
+                        起始地址
+                    </label>
+                    <input type="number" 
+                           id="cmdStartAddress" 
+                           placeholder="输入起始地址..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="registerCount" class="block text-sm font-medium text-gray-700 mb-2">
+                        读取数量
+                    </label>
+                    <input type="number" 
+                           id="registerCount" 
+                           placeholder="输入寄存器数量..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <button onclick="generateCommand()" 
+                    class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                生成命令
+            </button>
+            
+            <div id="commandResult" class="mt-4 pt-4 border-t border-gray-200"></div>
+        </div>
+    </div>
+
+    <!-- 添加说明文档面板 -->
+<div id="helpPanel" class="space-y-6 hidden">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-6">Modbus 命令格式说明</h2>
+        
+        <!-- 命令信息表格 -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">命令信息格式：</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border-collapse border border-gray-300">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">格式</th>
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">从机地址</th>
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">功能码</th>
+                            <th class="border border-gray-300 px-4 py-2" colspan="2">寄存器起地址</th>
+                            <th class="border border-gray-300 px-4 py-2" colspan="2">读取字数</th>
+                            <th class="border border-gray-300 px-4 py-2" colspan="2">CRC 校验</th>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <th class="border border-gray-300 px-4 py-2">高字节</th>
+                            <th class="border border-gray-300 px-4 py-2">低字节</th>
+                            <th class="border border-gray-300 px-4 py-2">高字节</th>
+                            <th class="border border-gray-300 px-4 py-2">低字节</th>
+                            <th class="border border-gray-300 px-4 py-2">高字节</th>
+                            <th class="border border-gray-300 px-4 py-2">低字节</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-gray-300 px-4 py-2">十六进制数据</td>
+                            <td class="border border-gray-300 px-4 py-2">1F</td>
+                            <td class="border border-gray-300 px-4 py-2">03</td>
+                            <td class="border border-gray-300 px-4 py-2">00</td>
+                            <td class="border border-gray-300 px-4 py-2">00</td>
+                            <td class="border border-gray-300 px-4 py-2">00</td>
+                            <td class="border border-gray-300 px-4 py-2">03</td>
+                            <td class="border border-gray-300 px-4 py-2">06</td>
+                            <td class="border border-gray-300 px-4 py-2">75</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 回应信息表格 -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">回应信息格式：</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border-collapse border border-gray-300">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">格式</th>
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">从机地址</th>
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">功能码</th>
+                            <th class="border border-gray-300 px-4 py-2" rowspan="2">回应字节数</th>
+                            <th class="border border-gray-300 px-4 py-2" colspan="2">第一个寄存器内容</th>
+                            <th class="border border-gray-300 px-4 py-2" colspan="2">依次寄存器内容</th>
+                            <th class="border border-gray-300 px-4 py-2" colspan="2">CRC 校验</th>
+                        </tr>
+                        <tr class="bg-gray-50">
+                         
+                            <th class="border border-gray-300 px-4 py-2">高字节</th>
+                            <th class="border border-gray-300 px-4 py-2">低字节</th>
+                            <th class="border border-gray-300 px-4 py-2">高字节</th>
+                            <th class="border border-gray-300 px-4 py-2">低字节</th>
+                            <th class="border border-gray-300 px-4 py-2">高字节</th>
+                            <th class="border border-gray-300 px-4 py-2">低字节</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-gray-300 px-4 py-2">十六进制数据</td>
+                            <td class="border border-gray-300 px-4 py-2">1F</td>
+                            <td class="border border-gray-300 px-4 py-2">03</td>
+                            <td class="border border-gray-300 px-4 py-2">06</td>
+                            <td class="border border-gray-300 px-4 py-2">00</td>
+                            <td class="border border-gray-300 px-4 py-2">09</td>
+                            <td class="border border-gray-300 px-4 py-2">......</td>
+                            <td class="border border-gray-300 px-4 py-2">......</td>
+                            <td class="border border-gray-300 px-4 py-2">7C</td>
+                            <td class="border border-gray-300 px-4 py-2">D4</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 补充说明 -->
+        <div class="text-gray-600">
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">说明：</h3>
+            <p class="mb-2">第一个寄存器内容示例：0x0009 = 0000 0000 0000 1001</p>
+        
+        </div>
+    </div>
+
+
+</div>
+
+    <!-- 添加提示框 -->
+    <div id="toast" class="toast">已复制到剪贴板</div>
+<script>
+// 修改parseData函数，使用Tailwind样式
+function parseData() {
+    const input = document.getElementById("parserInput").value;
+    if (!input) {
+        console.log("请输入要解析的数据");
+        return;
+    }
+
+    try {
+        const result = ModbusParserUtil.parse(input);
+        console.log("解析结果：", result);
+
+        const resultElement = document.getElementById('parseResult');
+        
+        let html = '<div class="space-y-2">';
+        html += `<div class="flex"><span class="font-medium w-24">从机地址:</span><span>${result.slaveAddress}</span></div>`;
+        html += `<div class="flex"><span class="font-medium w-24">功能码:</span><span>${result.functionCode}</span></div>`;
+        html += `<div class="flex"><span class="font-medium w-24">读取长度:</span><span>${result.byteCount}</span></div>`;
+        
+        html += '<div class="mt-2"><span class="font-medium">数据:</span>';
+        html += '<div class="ml-4 mt-1">';                
+        // 将结果转换为16进制字符串
+        const hexArray = Array.from(result.data)
+            .map(byte => byte.toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+      
+        // 按照 #### #### #### 格式组织数据（每4个字符加一个空格）
+        const formattedHex = hexArray.match(/.{4}/g).join(' ');
+        html += `<div class="space-y-2">
+            <div class="font-mono break-all whitespace-normal">${formattedHex}</div>
+            <div>
+                <button onclick="copyData('${formattedHex}')" 
+                        class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                    </svg>
+                    复制
+                </button>
+            </div>
+        </div>`;
+        html += '</div></div>';
+        
+        html += `<div class="flex"><span class="font-medium w-24">CRC:</span><span>${result.crc}</span></div>`;
+        html += '</div>';
+        
+        resultElement.innerHTML = html;
+    } catch (error) {
+        console.error("解析出错：", error);
+        const resultElement = document.getElementById("parseResult");
+        resultElement.innerHTML = `<div class="text-red-600">解析出错：${error.message}</div>`;
+    }
+}
+
+// 修改getValueData函数，使用Tailwind样式
+function getValueData() {
+    const startAddress = parseInt(document.getElementById('startAddress').value);
+    const endAddress = parseInt(document.getElementById('endAddress').value);
+    const resultElement = document.getElementById('registerResult');
+    
+    try {
+        const input = document.getElementById("parserInput").value;
+        const result = ModbusParserUtil.parse(input);
+        
+        // 计算最大可用地址（字节数除以2得到寄存器数量）
+        const maxAddress = result.byteCount / 2 - 1;
+        
+        // 校验地址范围
+        if (isNaN(startAddress)) {
+            throw new Error('请输入有效的地址值');
+        }
+        
+        if (startAddress < 0 || startAddress > maxAddress) {
+            throw new Error(`寄存器地址必须在0-${maxAddress}范围内`);
+        }
+        
+        let value;
+        let valueType;
+        
+        if (isNaN(endAddress)) {
+            // 16位值的情况
+            value = ModbusParserUtil.getValue(startAddress, result.data);
+            valueType = "16位值";
+        } else {
+            // 32位值的情况，需要检查第二个地址
+            if (endAddress < 0 || endAddress > maxAddress) {
+                throw new Error(`低16位地址必须在0-${maxAddress}范围内`);
+            }
+            value = ModbusParserUtil.getValue32(startAddress, endAddress, result.data);
+            valueType = "32位值";
+        }
+        
+        resultElement.innerHTML = `
+            <div class="flex items-center space-x-2">
+                <span class="font-medium">${valueType}:</span>
+                <span class="text-blue-600">${value}</span>
+            </div>
+        `;
+    } catch (error) {
+        resultElement.innerHTML = `<div class="text-red-600">获取值失败：${error.message}</div>`;
+    }
+}
+
+// Tab 切换功能
+function switchTab(tabName) {
+    const parsePanel = document.getElementById('parsePanel');
+    const generatePanel = document.getElementById('generatePanel');
+    const helpPanel = document.getElementById('helpPanel');
+    const parseTab = document.getElementById('parseTab');
+    const generateTab = document.getElementById('generateTab');
+    const helpTab = document.getElementById('helpTab');
+    
+    // 重置所有tab和panel的样式
+    [parsePanel, generatePanel, helpPanel].forEach(panel => panel.classList.add('hidden'));
+    [parseTab, generateTab, helpTab].forEach(tab => {
+        tab.classList.remove('border-blue-500', 'text-blue-600');
+        tab.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // 设置当前active的tab和panel
+    switch(tabName) {
+        case 'parse':
+            parsePanel.classList.remove('hidden');
+            parseTab.classList.add('border-blue-500', 'text-blue-600');
+            parseTab.classList.remove('border-transparent', 'text-gray-500');
+            break;
+        case 'generate':
+            generatePanel.classList.remove('hidden');
+            generateTab.classList.add('border-blue-500', 'text-blue-600');
+            generateTab.classList.remove('border-transparent', 'text-gray-500');
+            break;
+        case 'help':
+            helpPanel.classList.remove('hidden');
+            helpTab.classList.add('border-blue-500', 'text-blue-600');
+            helpTab.classList.remove('border-transparent', 'text-gray-500');
+            break;
+    }
+
+}
+
+// 生成命令功能
+function generateCommand() {
+    const slaveAddress = parseInt(document.getElementById('slaveAddress').value);
+    const startAddress = parseInt(document.getElementById('cmdStartAddress').value);
+    const registerCount = parseInt(document.getElementById('registerCount').value);
+    const functionCode = parseInt(document.getElementById('functionCode').value);
+    const resultElement = document.getElementById('commandResult');
+    
+    try {
+        // 输入验证
+        if (isNaN(slaveAddress) || isNaN(startAddress) || isNaN(registerCount) || isNaN(functionCode)) {
+            throw new Error('请填写所有必要的字段');
+        }
+        
+        if (slaveAddress < 0 || slaveAddress > 255) {
+            throw new Error('从属地址必须在0-255范围内');
+        }
+        
+        if (startAddress < 0) {
+            throw new Error('起始地址不能为负数');
+        }
+        
+        if (registerCount <= 0) {
+            throw new Error('寄存器数量必须大于0');
+        }
+        
+        // 调用message方法生成命令
+        const command = ModbusParserUtil.message(slaveAddress, startAddress, registerCount,functionCode);
+        
+        // 将结果转换为16进制字符串
+        const hexArray = Array.from(command)
+            .map(byte => byte.toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+          
+        // 按照 #### #### #### 格式组织数据（每4个字符加一个空格）
+        const formattedHex = hexArray.match(/.{4}/g).join(' ');
+        // 显示结果
+        // 显示结果
+        resultElement.innerHTML = `
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="font-medium text-gray-700">生成的命令：</div>
+                    <button onclick="copyCommand('${hexArray}')" 
+                            class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                        </svg>
+                        复制
+                    </button>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-md font-mono text-blue-600 select-all cursor-pointer" 
+                     onclick="copyCommand('${formattedHex}')" 
+                     title="点击复制">
+                    ${formattedHex}
+                </div>
+                <div class="text-sm text-gray-500">提示：点击命令可复制，或使用快捷键 Ctrl+C</div>
+                <div class="text-sm text-gray-600">
+                    命令结构：
+                    <ul class="list-disc ml-5 mt-1">
+                        <li>从属地址：${hexArray.slice(0, 2)}</li>
+                        <li>功能码：${hexArray.slice(2, 4)}</li>
+                        <li>起始地址：${hexArray.slice(4, 8)}</li>
+                        <li>寄存器数量：${hexArray.slice(8, 12)}</li>
+                        <li>CRC校验：${hexArray.slice(12, 16)}</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        // 自动复制到剪贴板（复制未格式化的值）
+        copyCommand(hexArray);
+    } catch (error) {
+        resultElement.innerHTML = `<div class="text-red-600">生成命令失败：${error.message}</div>`;
+    }
+}
+
+// 复制命令功能
+function copyCommand(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // 显示提示
+        const toast = document.getElementById('toast');
+        toast.style.display = 'block';
+        
+        // 2秒后隐藏提示
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 2000);
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
+function copyData(text) {
+    navigator.clipboard.writeText(text.replace(/\s+/g, '')).then(() => {
+        const toast = document.getElementById('toast');
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 2000);
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
+// 添加键盘快捷键支持
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'c') {
+        const commandElement = document.querySelector('.font-mono');
+        if (commandElement) {
+            copyCommand(commandElement.textContent.trim());
+        }
+    }
+});
+</script>
+
+
+    <!-- 嵌入 ModbusParserUtil.js 内容 -->
+    <script>
+        /**
+         * Modbus Parser Utility Class
+         */
+        class ModbusParserUtil {
+          /**
+           * Parse a hex string into a Modbus message object
+           * @param {string} hexString - Hex string like "0303040000B3C06CAC"
+           * @returns {Object} ModbusMessage object
+           */
+          static parse(hexString) {
+            try {
+              // Remove all whitespace
+              hexString = hexString.replace(/\s+/g, "");
+  
+              // Check valid length
+              if (hexString.length < 8) {
+                // Minimum: slave address(2) + function code(2) + byte count(2) + CRC(4)
+                throw new Error("Invalid Modbus message length");
+              }
+  
+              const message = {
+                slaveAddress: parseInt(hexString.substring(0, 2), 16),
+                functionCode: parseInt(hexString.substring(2, 4), 16),
+                byteCount: parseInt(hexString.substring(4, 6), 16),
+              };
+  
+              // Parse data portion
+              const dataEndIndex = 6 + message.byteCount * 2;
+              if (hexString.length < dataEndIndex + 4) {
+                // +4 for CRC
+                throw new Error("Message too short for specified byte count");
+              }
+  
+              const data = new Uint8Array(message.byteCount);
+              const dataHex = hexString.substring(6, dataEndIndex);
+              for (let i = 0; i < message.byteCount; i++) {
+                data[i] = parseInt(dataHex.substring(i * 2, (i + 1) * 2), 16);
+              }
+              message.data = data;
+  
+              // Parse CRC (last 4 characters)
+              message.crc = parseInt(hexString.substring(hexString.length - 4), 16);
+  
+              return message;
+            } catch (e) {
+              throw new Error("Invalid hex string format: " + e.message);
+            }
+          }
+  
+          /**
+           * Validate CRC check
+           * @param {Object} message - ModbusMessage object
+           * @returns {boolean} Whether CRC check passed
+           */
+          static validateCrc(message) {
+            const calculatedCrc = this.calculateCrc(message);
+            return calculatedCrc === message.crc;
+          }
+  
+          /**
+           * Calculate CRC value
+           * @param {Object} message - ModbusMessage object
+           * @returns {number} Calculated CRC value
+           */
+          static calculateCrc(message) {
+            const messageBytes = new Uint8Array(3 + message.data.length);
+            messageBytes[0] = message.slaveAddress;
+            messageBytes[1] = message.functionCode;
+            messageBytes[2] = message.byteCount;
+            messageBytes.set(message.data, 3);
+  
+            let crc = 0xffff;
+            for (const byte of messageBytes) {
+              crc ^= byte & 0xff;
+              for (let j = 0; j < 8; j++) {
+                if ((crc & 0x0001) !== 0) {
+                  crc = (crc >> 1) ^ 0xa001;
+                } else {
+                  crc = crc >> 1;
+                }
+              }
+            }
+  
+            // Swap high and low bytes (CRC-16 is little-endian)
+            return ((crc & 0xff) << 8) | ((crc >> 8) & 0xff);
+          }
+  
+
+                    /**
+           * Generate Modbus message
+           * @param {number} slaveAddress - Slave address
+           * @param {number} startAddress - Start address
+           * @param {number} registerCount - Register count
+           * @returns {Uint8Array} Command bytes
+           */
+           static message(slaveAddress, startAddress,  registerCount,functionCode,) {
+            const cmd = new Uint8Array(8);
+            cmd[0] = slaveAddress & 0xff; // Slave address
+            cmd[1] = functionCode & 0xff; // Function code
+            cmd[2] = (startAddress >> 8) & 0xff; // Start address high byte
+            cmd[3] = startAddress & 0xff; // Start address low byte
+            cmd[4] = (registerCount >> 8) & 0xff; // Register count high byte
+            cmd[5] = registerCount & 0xff; // Register count low byte
+  
+            // Calculate CRC
+            const crc = this.calculateCRC16(cmd.slice(0, 6));
+            cmd[6] = crc[1]; // CRC high byte
+            cmd[7] = crc[0]; // CRC low byte
+  
+            return cmd;
+          }
+          /**
+           * Get value from data at specified address
+           * @param {number} address - Register address
+           * @param {Uint8Array} data - Data bytes
+           * @returns {number} Value at address
+           */
+          static getValue(address, data) {
+            address *= 2;
+            const highByte = data[address] & 0xff;
+            const lowByte = data[address + 1] & 0xff;
+            return (highByte << 8) | lowByte;
+          }
+  
+          /**
+           * Get value from data between start and end addresses
+           * @param {number} startAddress - Start register address
+           * @param {number} endAddress - End register address
+           * @param {Uint8Array} data - Data bytes
+           * @returns {number} Combined value
+           */
+          static getValue32(startAddress, endAddress, data) {
+            startAddress *= 2;
+            endAddress *= 2;
+            const bytes = new Uint8Array([data[startAddress], data[startAddress + 1], data[endAddress], data[endAddress + 1]]);
+            return new DataView(bytes.buffer).getInt32(0);
+          }
+  
+          /**
+           * Get decimal value with scale
+           * @param {number} address - Register address
+           * @param {Uint8Array} data - Data bytes
+           * @param {number} scale - Decimal scale
+           * @returns {number} Scaled decimal value
+           */
+          static getValueDecimal(address, data, scale) {
+            const value = this.getValue(address, data);
+            return Number((value / Math.pow(10, scale)).toFixed(scale));
+          }
+  
+          /**
+           * Get decimal value between addresses with scale
+           * @param {number} startAddress - Start register address
+           * @param {number} endAddress - End register address
+           * @param {Uint8Array} data - Data bytes
+           * @param {number} scale - Decimal scale
+           * @returns {number} Scaled decimal value
+           */
+          static getValueDecimal32(startAddress, endAddress, data, scale = 4) {
+            const value = this.getValue32(startAddress, endAddress, data);
+            return Number((value / Math.pow(10, scale)).toFixed(scale));
+          }
+  
+          // CRC16 lookup tables
+          static CRC16_HIGH_TABLE = new Uint8Array([
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41,
+            0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40     ]);
+  
+          static CRC16_LOW_TABLE = new Uint8Array([
+            0x00, 0xC0, 0xC1, 0x01, 0xC3, 0x03, 0x02, 0xC2,
+            0xC6, 0x06, 0x07, 0xC7, 0x05, 0xC5, 0xC4, 0x04,
+            0xCC, 0x0C, 0x0D, 0xCD, 0x0F, 0xCF, 0xCE, 0x0E,
+            0x0A, 0xCA, 0xCB, 0x0B, 0xC9, 0x09, 0x08, 0xC8,
+            0xD8, 0x18, 0x19, 0xD9, 0x1B, 0xDB, 0xDA, 0x1A,
+            0x1E, 0xDE, 0xDF, 0x1F, 0xDD, 0x1D, 0x1C, 0xDC,
+            0x14, 0xD4, 0xD5, 0x15, 0xD7, 0x17, 0x16, 0xD6,
+            0xD2, 0x12, 0x13, 0xD3, 0x11, 0xD1, 0xD0, 0x10,
+            0xF0, 0x30, 0x31, 0xF1, 0x33, 0xF3, 0xF2, 0x32,
+            0x36, 0xF6, 0xF7, 0x37, 0xF5, 0x35, 0x34, 0xF4,
+            0x3C, 0xFC, 0xFD, 0x3D, 0xFF, 0x3F, 0x3E, 0xFE,
+            0xFA, 0x3A, 0x3B, 0xFB, 0x39, 0xF9, 0xF8, 0x38,
+            0x28, 0xE8, 0xE9, 0x29, 0xEB, 0x2B, 0x2A, 0xEA,
+            0xEE, 0x2E, 0x2F, 0xEF, 0x2D, 0xED, 0xEC, 0x2C,
+            0xE4, 0x24, 0x25, 0xE5, 0x27, 0xE7, 0xE6, 0x26,
+            0x22, 0xE2, 0xE3, 0x23, 0xE1, 0x21, 0x20, 0xE0,
+            0xA0, 0x60, 0x61, 0xA1, 0x63, 0xA3, 0xA2, 0x62,
+            0x66, 0xA6, 0xA7, 0x67, 0xA5, 0x65, 0x64, 0xA4,
+            0x6C, 0xAC, 0xAD, 0x6D, 0xAF, 0x6F, 0x6E, 0xAE,
+            0xAA, 0x6A, 0x6B, 0xAB, 0x69, 0xA9, 0xA8, 0x68,
+            0x78, 0xB8, 0xB9, 0x79, 0xBB, 0x7B, 0x7A, 0xBA,
+            0xBE, 0x7E, 0x7F, 0xBF, 0x7D, 0xBD, 0xBC, 0x7C,
+            0xB4, 0x74, 0x75, 0xB5, 0x77, 0xB7, 0xB6, 0x76,
+            0x72, 0xB2, 0xB3, 0x73, 0xB1, 0x71, 0x70, 0xB0,
+            0x50, 0x90, 0x91, 0x51, 0x93, 0x53, 0x52, 0x92,
+            0x96, 0x56, 0x57, 0x97, 0x55, 0x95, 0x94, 0x54,
+            0x9C, 0x5C, 0x5D, 0x9D, 0x5F, 0x9F, 0x9E, 0x5E,
+            0x5A, 0x9A, 0x9B, 0x5B, 0x99, 0x59, 0x58, 0x98,
+            0x88, 0x48, 0x49, 0x89, 0x4B, 0x8B, 0x8A, 0x4A,
+            0x4E, 0x8E, 0x8F, 0x4F, 0x8D, 0x4D, 0x4C, 0x8C,
+            0x44, 0x84, 0x85, 0x45, 0x87, 0x47, 0x46, 0x86,
+            0x82, 0x42, 0x43, 0x83, 0x41, 0x81, 0x80, 0x40
+    ]);
+  
+          /**
+           * Calculate CRC16 checksum
+           * @param {Uint8Array} data - Data bytes
+           * @param {number} offset - Start offset
+           * @param {number} len - Length of data
+           * @param {number} preval - Initial value
+           * @returns {Uint8Array} CRC bytes
+           */
+          static calculateCRC16(data, offset = 0, len = data.length, preval = 0xffff) {
+            let ucCRCHi = (preval & 0xff00) >> 8;
+            let ucCRCLo = preval & 0x00ff;
+  
+            for (let i = 0; i < len; i++) {
+              const iIndex = (ucCRCLo ^ data[offset + i]) & 0xff;
+              ucCRCLo = (ucCRCHi ^ this.CRC16_HIGH_TABLE[iIndex]) & 0xff;
+              ucCRCHi = this.CRC16_LOW_TABLE[iIndex] & 0xff;
+            }
+  
+            const value = ((ucCRCHi & 0xff) << 8) | (ucCRCLo & 0xff);
+            return new Uint8Array([
+              (value >> 8) & 0xff, // High byte
+              value & 0xff, // Low byte
+            ]);
+          }
+        }
+      </script>
+  
+</body>
+</html>
