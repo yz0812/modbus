@@ -282,7 +282,7 @@ function parseData() {
         let html = '<div class="space-y-2">';
         html += `<div class="flex"><span class="font-medium w-24">从机地址:</span><span>${result.slaveAddress}</span></div>`;
         html += `<div class="flex"><span class="font-medium w-24">功能码:</span><span>${result.functionCode}</span></div>`;
-        html += `<div class="flex"><span class="font-medium w-24">读取长度:</span><span>${result.byteCount}</span></div>`;
+        html += `<div class="flex"><span class="font-medium w-24">读取寄存器数量:</span><span>${result.byteCount/2}</span></div>`;
         
         html += '<div class="mt-2"><span class="font-medium">数据:</span>';
         html += '<div class="ml-4 mt-1">';                
